@@ -82,18 +82,45 @@ exports.deleteBook = (req, res, next) => {
 
 // post rating 
 
-exports.postRate = (req, res) => {
+exports.postRate = async (req, res) => {
+    const { userId, rating } = req.body;
 
-    const user = req.body.userId;
+    try {
+        const book = await Book.findOne({ _id: req.params.id });
 
-    
+        if (!book) {
+            return res.status(404).json({ message: "Livre non trouvé" });
+        }
 
-}
+        const isRegisteredUser = book.ratings.find(rate => rate.userId === userId);
+        if (isRegisteredUser) {
+            return res.status(401).json({ message: "Vous avez déjà noté ce livre" });
+        }
+
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ message: "La note doit être entre 1 et 5 étoiles" });
+        }
+
+        book.ratings.push({ userId, grade: rating });
+
+        const averageRating = book.ratings.reduce((sum, rating) => sum + rating.grade, 0) / book.ratings.length;
+        book.averageRating = Math.round(averageRating * 100) / 100;
+
+        await book.save();
+
+        res.status(200).json(book);
+    } catch (error) {
+        res.status(500).json({ error: "Une erreur est survenue lors de la notation du livre" });
+    }
+};
 
 // get bestRating
 
-exports.getBestRatings = (req, res) => {
-
-    
-
-}
+exports.getBestRatings = async (req, res) => {
+    try {
+        const books = await Book.find().sort({ averageRating: -1 }).limit(3);
+        res.status(200).json(books);
+    } catch (error) {
+        res.status(500).json({ error: "Une erreur est survenue lors de la récupération des livres" });
+    }
+};
